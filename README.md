@@ -92,21 +92,260 @@ The frontend implements reactive state management for:
 
 ## Project Structure
 
-The monorepo contains two main directories:
+### Directory Structure
 
-### frontend-main
-The SvelteKit application containing:
-- Routes for terminal, dashboard, competition, and landing pages
-- Wallet integration and authentication
-- Trading interface and order execution
-- Chart rendering and market data display
-- Social features and user profiles
+```
+blockberg/
+├── frontend-main/                 # SvelteKit Application
+│   ├── src/
+│   │   ├── lib/                   # Shared Libraries & Components
+│   │   │   ├── assets/            # Images, icons, SVG files
+│   │   │   ├── stores/            # Svelte stores for state management
+│   │   │   │   └── tradingMode.ts # Competition vs regular trading mode
+│   │   │   ├── toast/             # Toast notification system
+│   │   │   │   ├── Toast.svelte   # Toast component
+│   │   │   │   └── store.ts       # Toast state management
+│   │   │   ├── wallet/            # Wallet integration
+│   │   │   │   ├── WalletButton.svelte
+│   │   │   │   ├── WalletModal.svelte
+│   │   │   │   └── stores.ts      # Wallet connection state
+│   │   │   ├── env.ts             # Environment variable management
+│   │   │   ├── magicblock.ts      # MagicBlock SDK integration
+│   │   │   ├── supabase.ts        # Supabase client configuration
+│   │   │   ├── types.ts           # TypeScript type definitions
+│   │   │   └── index.ts           # Library exports
+│   │   │
+│   │   └── routes/                # SvelteKit Routes (Pages)
+│   │       ├── +layout.svelte     # Root layout component
+│   │       ├── +page.svelte       # Landing page (trade feed)
+│   │       ├── +page.ts           # Landing page data loader
+│   │       ├── landing/           # Marketing landing page
+│   │       │   ├── +page.svelte
+│   │       │   └── +page.ts
+│   │       ├── terminal/          # Trading terminal
+│   │       │   ├── +page.svelte   # Main trading interface
+│   │       │   └── +page.ts       # Terminal data loader
+│   │       ├── dashboard/         # User dashboard
+│   │       │   └── +page.svelte   # Analytics & performance
+│   │       └── competition/       # Tournament system
+│   │           ├── +page.svelte   # Competition interface
+│   │           └── +page.ts       # Competition data loader
+│   │
+│   ├── static/                    # Static assets served as-is
+│   ├── .env                       # Environment variables (local)
+│   ├── .env.example               # Environment template
+│   ├── package.json               # Dependencies and scripts
+│   ├── svelte.config.js           # SvelteKit configuration
+│   ├── tsconfig.json              # TypeScript configuration
+│   └── vite.config.ts             # Vite build configuration
+│
+├── backend-main/                  # Backend Services (Future)
+│   └── [Supporting services]      # API aggregation, jobs
+│
+├── .gitignore                     # Git ignore rules
+├── vercel.json                    # Vercel deployment config
+└── README.md                      # Project documentation
+```
 
-### backend-main
-Supporting services and utilities for:
-- Data aggregation
-- External API integrations
-- Background job processing
+### Application Architecture
+
+#### Layer Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Presentation Layer                       │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │   Terminal  │  │   Dashboard  │  │   Competition    │   │
+│  │   +page     │  │    +page     │  │     +page        │   │
+│  └─────────────┘  └──────────────┘  └──────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Component Layer                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ WalletButton │  │ Toast System │  │ Chart Components │  │
+│  │ WalletModal  │  │ Notification │  │ Trading Forms    │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   State Management Layer                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ walletStore  │  │ toastStore   │  │ tradingModeStore │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Integration Layer                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ magicblock.ts│  │ supabase.ts  │  │  env.ts          │  │
+│  │ (SDK Client) │  │ (DB Client)  │  │  (Config)        │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   External Services Layer                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │   Solana     │  │ Pyth Network │  │    Supabase      │  │
+│  │  Blockchain  │  │ Price Oracle │  │    Database      │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Data Flow Architecture
+
+```
+User Interaction
+      ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      Frontend (Browser)                      │
+│                                                              │
+│  User Input → Component → Store Update → API Call           │
+│                                              ↓               │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Wallet Adapter (Browser Extension)                    │ │
+│  │  - Sign Transactions                                   │ │
+│  │  - Manage Keys                                         │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+      ↓                    ↓                      ↓
+┌──────────────┐   ┌──────────────┐      ┌──────────────┐
+│ MagicBlock   │   │ Pyth Network │      │  Supabase    │
+│ Ephemeral    │   │ Hermes       │      │  PostgreSQL  │
+│ Rollup       │   │ Price Feeds  │      │  Database    │
+└──────────────┘   └──────────────┘      └──────────────┘
+      ↓                    ↓
+┌──────────────────────────────────┐
+│     Solana Devnet Blockchain     │
+│  - Trading Program (On-chain)    │
+│  - Tournament System             │
+│  - Position Management           │
+│  - Prize Distribution            │
+└──────────────────────────────────┘
+```
+
+#### On-Chain Program Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Solana Paper Trading Program                    │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                  Account Structures                     │ │
+│  │                                                         │ │
+│  │  TradingAccount          Position            Tournament│ │
+│  │  ├─ owner               ├─ position_id      ├─ id      │ │
+│  │  ├─ pair_index          ├─ owner            ├─ status  │ │
+│  │  ├─ token_in_balance    ├─ direction        ├─ pool    │ │
+│  │  ├─ token_out_balance   ├─ entry_price      ├─ players │ │
+│  │  └─ initialized         ├─ size              └─ times   │ │
+│  │                         └─ tp/sl                        │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                  Instruction Handlers                   │ │
+│  │                                                         │ │
+│  │  InitializeAccount     OpenPosition    CreateTournament│ │
+│  │  ExecuteTrade          ClosePosition   JoinTournament  │ │
+│  │  UpdateBalance         SettlePosition  StartTournament │ │
+│  │  TransferFunds         LiquidatePos    EndTournament   │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                  Validation Logic                       │ │
+│  │                                                         │ │
+│  │  ├─ Account Ownership Verification                     │ │
+│  │  ├─ Balance Sufficiency Checks                         │ │
+│  │  ├─ Price Oracle Validation                            │ │
+│  │  ├─ Competition Status Guards                          │ │
+│  │  └─ Timestamp & Expiry Validation                      │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Component Interaction Flow
+
+```
+Terminal Page Flow:
+┌────────────┐    ┌──────────────┐    ┌────────────────┐
+│   User     │───→│ Trading Form │───→│ walletStore    │
+│  Connects  │    │ (Buy/Sell)   │    │ (Check Auth)   │
+└────────────┘    └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ magicblock.ts│───→│ Sign & Send TX │
+                  │ executeSpot()│    │ to Blockchain  │
+                  └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ Toast        │←───│ Success/Error  │
+                  │ Notification │    │ Response       │
+                  └──────────────┘    └────────────────┘
+
+Competition Page Flow:
+┌────────────┐    ┌──────────────┐    ┌────────────────┐
+│   User     │───→│ Competition  │───→│ Fetch Active   │
+│  Visits    │    │ List         │    │ Tournaments    │
+└────────────┘    └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ User Selects │───→│ Fetch          │
+                  │ Tournament   │    │ Leaderboard    │
+                  └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ Join Action  │───→│ Pay Entry Fee  │
+                  │ Button       │    │ Update State   │
+                  └──────────────┘    └────────────────┘
+                         ↓
+                  ┌──────────────┐
+                  │ Redirect to  │
+                  │ Terminal w/  │
+                  │ Tournament   │
+                  │ Context      │
+                  └──────────────┘
+
+Dashboard Page Flow:
+┌────────────┐    ┌──────────────┐    ┌────────────────┐
+│   User     │───→│ Dashboard    │───→│ Load User      │
+│  Connected │    │ Component    │    │ Positions      │
+└────────────┘    └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ Fetch Trade  │───→│ Calculate      │
+                  │ History      │    │ Metrics        │
+                  └──────────────┘    └────────────────┘
+                         ↓                      ↓
+                  ┌──────────────┐    ┌────────────────┐
+                  │ Display      │←───│ Aggregate      │
+                  │ Analytics    │    │ PnL Data       │
+                  └──────────────┘    └────────────────┘
+```
+
+#### State Management Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Svelte Stores                           │
+│                                                              │
+│  walletStore (lib/wallet/stores.ts)                         │
+│  ├─ connected: boolean                                      │
+│  ├─ publicKey: PublicKey | null                             │
+│  ├─ adapter: WalletAdapter                                  │
+│  └─ balance: number                                         │
+│                                                              │
+│  tradingModeStore (lib/stores/tradingMode.ts)               │
+│  ├─ mode: 'regular' | 'tournament'                          │
+│  ├─ tournamentId: number | null                             │
+│  └─ setTournamentMode(id)                                   │
+│                                                              │
+│  toastStore (lib/toast/store.ts)                            │
+│  ├─ toasts: Toast[]                                         │
+│  ├─ success(title, message)                                 │
+│  ├─ error(title, message)                                   │
+│  └─ info(title, message)                                    │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Getting Started
 
